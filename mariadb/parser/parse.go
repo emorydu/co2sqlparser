@@ -12,16 +12,16 @@ import (
 )
 
 type fingerprintVisitor struct {
-	*BaseSQLiteParserListener
+	*BaseMariaDBParserListener
 	templates  string
 	parameters []string
 }
 
-func (l *fingerprintVisitor) EnterLiteral_value(ctx *Literal_valueContext) {
+func (l *fingerprintVisitor) EnterConstant(ctx *ConstantContext) {
 	l.parameters = append(l.parameters, ctx.GetText())
 }
 
-func (l *fingerprintVisitor) ExitLiteral_value(ctx *Literal_valueContext) {
+func (l *fingerprintVisitor) ExitConstant(ctx *ConstantContext) {
 	originalText := ctx.GetText()
 	_, err := strconv.Atoi(originalText)
 	if err != nil {
@@ -34,10 +34,10 @@ func (l *fingerprintVisitor) ExitLiteral_value(ctx *Literal_valueContext) {
 
 func FingerprintAndTemplateExtra(sql string) (template string, parameters []string) {
 	is := antlr.NewInputStream(sql)
-	lexer := NewSQLiteLexer(is)
+	lexer := NewMariaDBLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-	parser := NewSQLiteParser(stream)
-	tree := parser.Sql_stmt()
+	parser := NewMariaDBParser(stream)
+	tree := parser.SqlStatement()
 
 	listener := &fingerprintVisitor{
 		templates: sql,
