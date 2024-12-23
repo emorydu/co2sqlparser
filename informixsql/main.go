@@ -6,11 +6,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/emorydu/co2sqlparser/mariadb/parser"
+	"github.com/emorydu/co2sqlparser/informixsql/parser"
 )
 
 func main() {
 	template, parameters := parser.FingerprintAndTemplateExtra(`
-INSERT INTO hello VALUES('emorydu', 1231, 321314132)`)
+RENAME COLUMN customer.customer_num TO c_num; `)
+	// todo
 	fmt.Println(template, parameters)
 }

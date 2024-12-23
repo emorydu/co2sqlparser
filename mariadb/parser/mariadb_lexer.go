@@ -1,3 +1,7 @@
+// Copyright 2024 Emory.Du <orangeduxiaocheng@gmail.com>. All rights reserved.
+// Use of this source code is governed by an Apache style
+// license that can be found in the LICENSE file.
+
 // Code generated from MariaDBLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser
