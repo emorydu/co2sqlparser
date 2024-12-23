@@ -7,6 +7,7 @@ package parser
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -22,9 +23,13 @@ func (l *fingerprintVisitor) EnterConstant(ctx *ConstantContext) {
 
 func (l *fingerprintVisitor) ExitConstant(ctx *ConstantContext) {
 	originalText := ctx.GetText()
-	re := regexp.MustCompile(`\b` + regexp.QuoteMeta(originalText) + `\b`)
-	l.templates = re.ReplaceAllString(l.templates, "?")
-	//l.templates = strings.Replace(l.templates, originalText, "?", 1)
+	_, err := strconv.Atoi(originalText)
+	if err != nil {
+		l.templates = strings.Replace(l.templates, originalText, "?", 1)
+	} else {
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(originalText) + `\b`)
+		l.templates = re.ReplaceAllString(l.templates, "?")
+	}
 }
 
 func FingerprintAndTemplateExtra(sql string) (template string, parameters []string) {
