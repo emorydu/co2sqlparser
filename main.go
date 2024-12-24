@@ -36,12 +36,14 @@ func (l *fingerprintVisitor) ExitConstant(ctx *plsql.ConstantContext) {
 
 func main() {
 
-	sql := `CREATE TABLE table_name (
-	column1 varchar(50),
-	column2 int,
-	column3 timestamp,
-		CONSTRAINT check_salary CHECK (salary >= 0)
-	);`
+	//sql := `CREATE TABLE table_name (
+	//column1 varchar(50),
+	//column2 int,
+	//column3 timestamp,
+	//	CONSTRAINT check_salary CHECK (salary >= 0)
+	//);`
+	sql := `
+DELETE FROM hello where username = 'emorydu'`
 
 	is := antlr.NewInputStream(sql)
 	lexer := plsql.NewPlSqlLexer(is)
