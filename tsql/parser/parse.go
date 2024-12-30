@@ -13,8 +13,55 @@ import (
 
 type fingerprintVisitor struct {
 	*BaseTSqlParserListener
-	templates  string
-	parameters []string
+	templates    string
+	parameters   []string
+	columns      []string
+	tables       []string
+	sqlType      string
+	serialType   int
+	numberParams map[string]int
+}
+
+const (
+	DDL    = "DDL"
+	TCL    = "TCL"
+	DQL    = "DQL"
+	DML    = "DML"
+	Others = "Others"
+)
+
+const (
+	SerialSelect = iota + 1
+	SerialInsert
+	SerialUpdate
+	SerialDelete
+	SerialOthers
+)
+
+func (l *fingerprintVisitor) EnterCreate_table(ctx *Create_tableContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterCreate_view(ctx *Create_viewContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterSelect_statement(ctx *Select_statementContext) {
+	l.sqlType = DQL
+	l.serialType = SerialSelect
+}
+
+func (l *fingerprintVisitor) EnterUpdate_statement(ctx *Update_statementContext) {
+	l.sqlType = DML
+	l.serialType = SerialUpdate
+}
+func (l *fingerprintVisitor) EnterInsert_statement(ctx *Insert_statementContext) {
+	l.sqlType = DML
+	l.serialType = SerialInsert
+}
+func (l *fingerprintVisitor) EnterDelete_statement(ctx *Delete_statementContext) {
+	l.sqlType = DML
+	l.serialType = SerialDelete
 }
 
 func (l *fingerprintVisitor) EnterPrimitive_constant(ctx *Primitive_constantContext) {
@@ -27,12 +74,22 @@ func (l *fingerprintVisitor) ExitPrimitive_constant(ctx *Primitive_constantConte
 	if err != nil {
 		l.templates = strings.Replace(l.templates, originalText, "?", 1)
 	} else {
-		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(originalText) + `\b`)
-		l.templates = re.ReplaceAllString(l.templates, "?")
+		l.numberParams[ctx.GetText()] = len(ctx.GetText())
+		//re := regexp.MustCompile(`\b` + regexp.QuoteMeta(originalText) + `\b`)
+		//l.templates = re.ReplaceAllString(l.templates, "?")
 	}
 }
 
-func FingerprintAndTemplateExtra(sql string) (template string, parameters []string) {
+type Result struct {
+	Template   string
+	Parameters []string
+	SQLType    string
+	SerialType int
+	Tables     []string
+	Columns    []string
+}
+
+func FingerprintAndTemplateExtra(sql string) Result {
 	is := antlr.NewInputStream(sql)
 	lexer := NewTSqlLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
@@ -40,14 +97,46 @@ func FingerprintAndTemplateExtra(sql string) (template string, parameters []stri
 	tree := parser.Tsql_file()
 
 	listener := &fingerprintVisitor{
-		templates: sql,
+		templates:    sql,
+		numberParams: make(map[string]int),
+		sqlType:      Others,
+		serialType:   SerialOthers,
 	}
 
 	antlr.ParseTreeWalkerDefault.Walk(listener, tree)
 
-	template = strings.Trim(listener.templates, "\n")
-	parameters = listener.parameters
-	//var output []string
-	//fmt.Println(tree.ToStringTree(output, parser))
-	return
+	counts := len(listener.numberParams)
+	for i := 0; i < counts+1; i++ {
+		vv := returnMaxLenElem(listener.numberParams)
+		if vv == "" {
+			continue
+		}
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(vv) + `\b`)
+		listener.templates = re.ReplaceAllString(listener.templates, "?")
+	}
+
+	result := Result{
+		Template:   strings.Trim(listener.templates, "\n"),
+		Parameters: listener.parameters,
+		SerialType: listener.serialType,
+		SQLType:    listener.sqlType,
+		Tables:     listener.tables,
+		Columns:    listener.columns,
+	}
+
+	return result
+}
+
+func returnMaxLenElem(m map[string]int) string {
+	mmv := ""
+	maxValue := 0
+	for k, v := range m {
+		if v > maxValue {
+			maxValue = v
+			mmv = k
+		}
+	}
+
+	delete(m, mmv)
+	return mmv
 }

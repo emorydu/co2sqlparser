@@ -13,8 +13,84 @@ import (
 
 type fingerprintVisitor struct {
 	*BaseMySQLParserListener
-	templates  string
-	parameters []string
+	templates    string
+	parameters   []string
+	columns      []string
+	tables       []string
+	sqlType      string
+	serialType   int
+	numberParams map[string]int
+}
+
+const (
+	DDL    = "DDL"
+	TCL    = "TCL"
+	DQL    = "DQL"
+	DML    = "DML"
+	Others = "Others"
+)
+
+const (
+	SerialSelect = iota + 1
+	SerialInsert
+	SerialUpdate
+	SerialDelete
+	SerialOthers
+)
+
+func (l *fingerprintVisitor) EnterShowCreateTableStatement(ctx *ShowCreateTableStatementContext) {
+	l.sqlType = DDL
+}
+func (l *fingerprintVisitor) EnterShowCreateViewStatement(ctx *ShowCreateViewStatementContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterCreateIndex(ctx *CreateIndexContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterCreateTrigger(ctx *CreateTriggerContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterDropStatement(ctx *DropStatementContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterAlterTable(ctx *AlterTableContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterBeginWork(ctx *BeginWorkContext) {
+	l.sqlType = TCL
+}
+
+func (l *fingerprintVisitor) EnterSavepointStatement(ctx *SavepointStatementContext) {
+	l.sqlType = TCL
+}
+
+func (l *fingerprintVisitor) EnterLockStatement(ctx *LockStatementContext) {
+	l.sqlType = TCL
+}
+
+func (l *fingerprintVisitor) EnterSelectStatement(ctx *SelectStatementContext) {
+	l.sqlType = DQL
+	l.serialType = SerialSelect
+}
+
+func (l *fingerprintVisitor) EnterUpdateStatement(ctx *UpdateStatementContext) {
+	l.sqlType = DML
+	l.serialType = SerialUpdate
+}
+
+func (l *fingerprintVisitor) EnterInsertStatement(ctx *InsertStatementContext) {
+	l.sqlType = DML
+	l.serialType = SerialInsert
+}
+
+func (l *fingerprintVisitor) EnterDeleteStatement(ctx *DeleteStatementContext) {
+	l.sqlType = DML
+	l.serialType = SerialDelete
 }
 
 func (l *fingerprintVisitor) EnterLiteralOrNull(ctx *LiteralOrNullContext) {
@@ -27,12 +103,22 @@ func (l *fingerprintVisitor) ExitLiteralOrNull(ctx *LiteralOrNullContext) {
 	if err != nil {
 		l.templates = strings.Replace(l.templates, originalText, "?", 1)
 	} else {
-		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(originalText) + `\b`)
-		l.templates = re.ReplaceAllString(l.templates, "?")
+		l.numberParams[ctx.GetText()] = len(ctx.GetText())
+		//re := regexp.MustCompile(`\b` + regexp.QuoteMeta(originalText) + `\b`)
+		//l.templates = re.ReplaceAllString(l.templates, "?")
 	}
 }
 
-func FingerprintAndTemplateExtra(sql string) (template string, parameters []string) {
+type Result struct {
+	Template   string
+	Parameters []string
+	SQLType    string
+	SerialType int
+	Tables     []string
+	Columns    []string
+}
+
+func FingerprintAndTemplateExtra(sql string) Result {
 	is := antlr.NewInputStream(sql)
 	lexer := NewMySQLLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
@@ -40,12 +126,45 @@ func FingerprintAndTemplateExtra(sql string) (template string, parameters []stri
 	tree := parser.SimpleStatement()
 
 	listener := &fingerprintVisitor{
-		templates: sql,
+		templates:    sql,
+		sqlType:      Others,
+		numberParams: make(map[string]int),
+		serialType:   SerialOthers,
 	}
 
 	antlr.ParseTreeWalkerDefault.Walk(listener, tree)
+	counts := len(listener.numberParams)
+	for i := 0; i < counts+1; i++ {
+		vv := returnMaxLenElem(listener.numberParams)
+		if vv == "" {
+			continue
+		}
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(vv) + `\b`)
+		listener.templates = re.ReplaceAllString(listener.templates, "?")
+	}
 
-	template = strings.Trim(listener.templates, "\n")
-	parameters = listener.parameters
-	return
+	result := Result{
+		Template:   strings.Trim(listener.templates, "\n"),
+		Parameters: listener.parameters,
+		SerialType: listener.serialType,
+		SQLType:    listener.sqlType,
+		Tables:     listener.tables,
+		Columns:    listener.columns,
+	}
+
+	return result
+}
+
+func returnMaxLenElem(m map[string]int) string {
+	mmv := ""
+	maxValue := 0
+	for k, v := range m {
+		if v > maxValue {
+			maxValue = v
+			mmv = k
+		}
+	}
+
+	delete(m, mmv)
+	return mmv
 }

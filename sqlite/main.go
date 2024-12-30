@@ -10,6 +10,8 @@ import (
 )
 
 func main() {
-	template, parameters := parser.FingerprintAndTemplateExtra(`INSERT INTO hello VALUES('emorydu', 232, 32413.32)`)
-	fmt.Println(template, parameters)
+	s := `select column1, column2 as ttt from helloworld where column1 in (select numbers from hello)`
+	fmt.Println(s)
+	result := parser.FingerprintAndTemplateExtra(s)
+	fmt.Printf("%#+v\n", result)
 }

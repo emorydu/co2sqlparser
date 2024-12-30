@@ -11,16 +11,15 @@ import (
 
 func main() {
 	sql := `
-	CREATE TABLE employees (
-	employee_id NUMBER PRIMARY KEY,
-	first_name VARCHAR2(50) NOT NULL,
-	last_name VARCHAR2(50) NOT NULL,
-	hire_date DATE,
-	salary NUMBER(10, 2),
-	CONSTRAINT unique_first_name UNIQUE (first_name),
-	CONSTRAINT check_salary CHECK (salary >= 0)
-	);`
-	templates, parameters := parser.FingerprintAndTemplateExtra(sql)
-	fmt.Println("templates:", templates)
-	fmt.Println("parameters:", parameters)
+CREATE TABLE employees (
+employee_id NUMBER PRIMARY KEY,
+first_name VARCHAR2(50) NOT NULL,
+last_name VARCHAR2(50) NOT NULL,
+hire_date DATE,
+salary NUMBER(10, 2),
+CONSTRAINT unique_first_name UNIQUE (first_name),
+CONSTRAINT check_salary CHECK (salary >= 0)
+);`
+	result := parser.FingerprintAndTemplateExtra(sql)
+	fmt.Printf("%#+v\n", result)
 }

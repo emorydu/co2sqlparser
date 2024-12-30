@@ -10,8 +10,13 @@ import (
 )
 
 func main() {
-	template, parameters := parser.FingerprintAndTemplateExtra(`
-insert into hello (name, age, zipcode) values ('emorydu', 25, 0)`)
+	//	template, parameters := parser.FingerprintAndTemplateExtra(`
+	//insert into hello (name, age, zipc25ode) values ('emorydu', -25, 0)`)
+
+	result := parser.FingerprintAndTemplateExtra(`
+show status`)
+
+	fmt.Printf("%#+v\n", result)
 	//
 	//template, parameters := parser.FingerprintAndTemplateExtra(`
 	//CREATE TABLE table_name (
@@ -20,6 +25,5 @@ insert into hello (name, age, zipcode) values ('emorydu', 25, 0)`)
 	// column3 timestamp,
 	//	CONSTRAINT check_salary CHECK (salary >= 0)
 	//);`)
-	fmt.Println(template)
-	fmt.Println(parameters)
+
 }

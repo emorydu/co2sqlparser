@@ -6,10 +6,9 @@ import (
 )
 
 func main() {
-	template, parameters := parser.FingerprintAndTemplateExtra(`
+	result :=  parser.FingerprintAndTemplateExtra(`
 UPDATE Customers
 SET ContactName='Juan'
 WHERE Country='Mexico';`)
-	fmt.Println("templates:", template)
-	fmt.Println("parameters:", parameters)
+	fmt.Printf("%#+v\n", result)
 }

@@ -11,7 +11,15 @@ import (
 
 func main() {
 	template, parameters := parser.FingerprintAndTemplateExtra(`
-RENAME COLUMN customer.customer_num TO c_num; `)
+create table cti_vccinfo(
+    vccid CHAR(6) not null,
+    vccname VARCHAR(255),
+    effective INTEGER default 0 not null,
+    agentmax INTEGER default 0 not null,
+    ivrmax INTEGER default 0 not null,
+    updatekey VARCHAR(30),
+    primary key (vccid) constraint PK_CTI_VI
+);`)
 	// todo
 	fmt.Println(template, parameters)
 }

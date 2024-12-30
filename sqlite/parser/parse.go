@@ -13,12 +13,101 @@ import (
 
 type fingerprintVisitor struct {
 	*BaseSQLiteParserListener
-	templates  string
-	parameters []string
+	templates    string
+	parameters   []string
+	columns      []string
+	tables       []string
+	sqlType      string
+	serialType   int
+	numberParams map[string]int
+}
+
+const (
+	DDL    = "DDL"
+	TCL    = "TCL"
+	DQL    = "DQL"
+	DML    = "DML"
+	Others = "Others"
+)
+
+const (
+	SerialSelect = iota + 1
+	SerialInsert
+	SerialUpdate
+	SerialDelete
+	SerialOthers
+)
+
+func (l *fingerprintVisitor) EnterCreate_table_stmt(ctx *Create_table_stmtContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterCreate_index_stmt(ctx *Create_index_stmtContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterCreate_trigger_stmt(ctx *Create_trigger_stmtContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterCreate_view_stmt(ctx *Create_view_stmtContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterDrop_stmt(ctx *Drop_stmtContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterAlter_table_stmt(ctx *Alter_table_stmtContext) {
+	l.sqlType = DDL
+}
+
+func (l *fingerprintVisitor) EnterBegin_stmt(ctx *Begin_stmtContext) {
+	l.sqlType = TCL
+}
+
+func (l *fingerprintVisitor) EnterCommit_stmt(ctx *Commit_stmtContext) {
+	l.sqlType = TCL
+}
+
+func (l *fingerprintVisitor) EnterRollback_stmt(ctx *Rollback_stmtContext) {
+	l.sqlType = TCL
+}
+
+func (l *fingerprintVisitor) EnterSavepoint_stmt(ctx *Savepoint_stmtContext) {
+	l.sqlType = TCL
+}
+
+func (l *fingerprintVisitor) EnterSelect_stmt(ctx *Select_stmtContext) {
+	l.sqlType = DQL
+	l.serialType = SerialSelect
+}
+
+func (l *fingerprintVisitor) EnterUpdate_stmt(ctx *Update_stmtContext) {
+	l.sqlType = DML
+	l.serialType = SerialUpdate
+}
+
+func (l *fingerprintVisitor) EnterInsert_stmt(ctx *Insert_stmtContext) {
+	l.sqlType = DML
+	l.serialType = SerialInsert
+}
+
+func (l *fingerprintVisitor) EnterDelete_stmt(ctx *Delete_stmtContext) {
+	l.sqlType = DML
+	l.serialType = SerialDelete
 }
 
 func (l *fingerprintVisitor) EnterLiteral_value(ctx *Literal_valueContext) {
 	l.parameters = append(l.parameters, ctx.GetText())
+}
+
+func (l *fingerprintVisitor) ExitTable_or_subquery(ctx *Table_or_subqueryContext) {
+	l.tables = append(l.tables, ctx.GetText())
+}
+
+func (l *fingerprintVisitor) ExitResult_column(ctx *Result_columnContext) {
+	l.columns = append(l.columns, ctx.GetText())
 }
 
 func (l *fingerprintVisitor) ExitLiteral_value(ctx *Literal_valueContext) {
@@ -27,12 +116,20 @@ func (l *fingerprintVisitor) ExitLiteral_value(ctx *Literal_valueContext) {
 	if err != nil {
 		l.templates = strings.Replace(l.templates, originalText, "?", 1)
 	} else {
-		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(originalText) + `\b`)
-		l.templates = re.ReplaceAllString(l.templates, "?")
+		l.numberParams[ctx.GetText()] = len(ctx.GetText())
 	}
 }
 
-func FingerprintAndTemplateExtra(sql string) (template string, parameters []string) {
+type Result struct {
+	Template   string
+	Parameters []string
+	SQLType    string
+	SerialType int
+	Tables     []string
+	Columns    []string
+}
+
+func FingerprintAndTemplateExtra(sql string) Result {
 	is := antlr.NewInputStream(sql)
 	lexer := NewSQLiteLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
@@ -40,14 +137,46 @@ func FingerprintAndTemplateExtra(sql string) (template string, parameters []stri
 	tree := parser.Sql_stmt()
 
 	listener := &fingerprintVisitor{
-		templates: sql,
+		templates:    sql,
+		numberParams: make(map[string]int),
+		sqlType:      Others,
+		serialType:   SerialOthers,
 	}
 
 	antlr.ParseTreeWalkerDefault.Walk(listener, tree)
 
-	template = strings.Trim(listener.templates, "\n")
-	parameters = listener.parameters
-	//var output []string
-	//fmt.Println(tree.ToStringTree(output, parser))
-	return
+	counts := len(listener.numberParams)
+	for i := 0; i < counts+1; i++ {
+		vv := returnMaxLenElem(listener.numberParams)
+		if vv == "" {
+			continue
+		}
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(vv) + `\b`)
+		listener.templates = re.ReplaceAllString(listener.templates, "?")
+	}
+
+	result := Result{
+		Template:   strings.Trim(listener.templates, "\n"),
+		Parameters: listener.parameters,
+		SerialType: listener.serialType,
+		SQLType:    listener.sqlType,
+		Tables:     listener.tables,
+		Columns:    listener.columns,
+	}
+
+	return result
+}
+
+func returnMaxLenElem(m map[string]int) string {
+	mmv := ""
+	maxValue := 0
+	for k, v := range m {
+		if v > maxValue {
+			maxValue = v
+			mmv = k
+		}
+	}
+
+	delete(m, mmv)
+	return mmv
 }
