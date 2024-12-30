@@ -38,6 +38,14 @@ const (
 	SerialOthers
 )
 
+func (l *fingerprintVisitor) ExitFull_table_name(ctx *Full_table_nameContext) {
+	l.tables = append(l.tables, ctx.GetText())
+}
+
+func (l *fingerprintVisitor) ExitSelect_list_elem(ctx *Select_list_elemContext) {
+	l.columns = append(l.columns, ctx.GetText())
+}
+
 func (l *fingerprintVisitor) EnterCreate_table(ctx *Create_tableContext) {
 	l.sqlType = DDL
 }

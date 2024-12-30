@@ -6,9 +6,7 @@ import (
 )
 
 func main() {
-	result :=  parser.FingerprintAndTemplateExtra(`
-UPDATE Customers
-SET ContactName='Juan'
-WHERE Country='Mexico';`)
+	result := parser.FingerprintAndTemplateExtra(`
+select c1, c2, c3 from helloworld where username = 'emorydu'`)
 	fmt.Printf("%#+v\n", result)
 }

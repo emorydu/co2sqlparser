@@ -38,6 +38,14 @@ const (
 	SerialOthers
 )
 
+func (l *fingerprintVisitor) ExitTable_ref(ctx *Table_refContext) {
+	l.tables = append(l.tables, ctx.GetText())
+}
+
+func (l *fingerprintVisitor) EnterSelect_list_elements(ctx *Select_list_elementsContext) {
+	l.columns = append(l.columns, ctx.GetText())
+}
+
 func (l *fingerprintVisitor) EnterCreate_table(ctx *Create_tableContext) {
 	l.sqlType = DDL
 }
@@ -45,6 +53,7 @@ func (l *fingerprintVisitor) EnterCreate_table(ctx *Create_tableContext) {
 func (l *fingerprintVisitor) EnterCreate_view(ctx *Create_viewContext) {
 	l.sqlType = DDL
 }
+
 func (l *fingerprintVisitor) EnterCreate_index(ctx *Create_indexContext) {
 	l.sqlType = DDL
 }

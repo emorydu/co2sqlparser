@@ -5,10 +5,11 @@
 package parser
 
 import (
-	"github.com/antlr4-go/antlr/v4"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/antlr4-go/antlr/v4"
 )
 
 type fingerprintVisitor struct {
@@ -38,9 +39,18 @@ const (
 	SerialOthers
 )
 
+func (l *fingerprintVisitor) ExitTableReferenceList(ctx *TableReferenceListContext) {
+	l.tables = append(l.tables, ctx.GetText())
+}
+
+func (l *fingerprintVisitor) ExitSelectItem(ctx *SelectItemContext) {
+	l.columns = append(l.columns, ctx.GetText())
+}
+
 func (l *fingerprintVisitor) EnterShowCreateTableStatement(ctx *ShowCreateTableStatementContext) {
 	l.sqlType = DDL
 }
+
 func (l *fingerprintVisitor) EnterShowCreateViewStatement(ctx *ShowCreateViewStatementContext) {
 	l.sqlType = DDL
 }

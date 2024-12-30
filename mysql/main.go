@@ -14,9 +14,9 @@ func main() {
 	//insert into hello (name, age, zipc25ode) values ('emorydu', -25, 0)`)
 
 	result := parser.FingerprintAndTemplateExtra(`
-show status`)
+select column1, column2 from helloworld where column1 = 'emorydu'`)
 
-	fmt.Printf("%#+v\n", result)
+	fmt.Printf("%#+v\n", result.Columns)
 	//
 	//template, parameters := parser.FingerprintAndTemplateExtra(`
 	//CREATE TABLE table_name (
