@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	sql := `select c1, c2, c3 from hello where username = 'emorydu'`
+	sql := `select numbers from hello t1 left join world t2 on t1.column1 = t2.column1 where t2.username = 'emorydu' and t1.password like '%1234%'`
 	result := parser.FingerprintAndTemplateExtra(sql)
 	fmt.Printf("%#+v\n", result)
 }

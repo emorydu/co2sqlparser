@@ -20,6 +20,8 @@ type fingerprintVisitor struct {
 	sqlType      string
 	serialType   int
 	numberParams map[string]int
+	tableMap     map[string]struct{}
+	columnMap    map[string]struct{}
 }
 
 const (
@@ -38,12 +40,16 @@ const (
 	SerialOthers
 )
 
-func (l *fingerprintVisitor) ExitFull_table_name(ctx *Full_table_nameContext) {
-	l.tables = append(l.tables, ctx.GetText())
+func (l *fingerprintVisitor) EnterTable_source_item(ctx *Table_source_itemContext) {
+	l.tableMap[ctx.GetText()] = struct{}{}
 }
 
-func (l *fingerprintVisitor) ExitSelect_list_elem(ctx *Select_list_elemContext) {
-	l.columns = append(l.columns, ctx.GetText())
+//func (l *fingerprintVisitor) EnterTable_alias(ctx *Table_aliasContext) {
+//	l.tableMap[ctx.GetText()] = struct{}{}
+//}
+
+func (l *fingerprintVisitor) EnterFull_column_name(ctx *Full_column_nameContext) {
+	l.columnMap[ctx.GetText()] = struct{}{}
 }
 
 func (l *fingerprintVisitor) EnterCreate_table(ctx *Create_tableContext) {
@@ -109,9 +115,19 @@ func FingerprintAndTemplateExtra(sql string) Result {
 		numberParams: make(map[string]int),
 		sqlType:      Others,
 		serialType:   SerialOthers,
+		columnMap:    make(map[string]struct{}),
+		tableMap:     make(map[string]struct{}),
 	}
 
 	antlr.ParseTreeWalkerDefault.Walk(listener, tree)
+
+	for k := range listener.tableMap {
+		listener.tables = append(listener.tables, k)
+	}
+
+	for k := range listener.columnMap {
+		listener.columns = append(listener.columns, k)
+	}
 
 	counts := len(listener.numberParams)
 	for i := 0; i < counts+1; i++ {
@@ -131,6 +147,8 @@ func FingerprintAndTemplateExtra(sql string) Result {
 		Tables:     listener.tables,
 		Columns:    listener.columns,
 	}
+	//var output []string
+	//fmt.Println(tree.ToStringTree(output, parser))
 
 	return result
 }

@@ -20,6 +20,8 @@ type fingerprintVisitor struct {
 	sqlType      string
 	serialType   int
 	numberParams map[string]int
+	tableMap     map[string]struct{}
+	columnMap    map[string]struct{}
 }
 
 const (
@@ -38,12 +40,12 @@ const (
 	SerialOthers
 )
 
-func (l *fingerprintVisitor) ExitTable_ref(ctx *Table_refContext) {
-	l.tables = append(l.tables, ctx.GetText())
+func (l *fingerprintVisitor) EnterTableview_name(ctx *Tableview_nameContext) {
+	l.tableMap[ctx.GetText()] = struct{}{}
 }
 
-func (l *fingerprintVisitor) EnterSelect_list_elements(ctx *Select_list_elementsContext) {
-	l.columns = append(l.columns, ctx.GetText())
+func (l *fingerprintVisitor) EnterUnary_expression(ctx *Unary_expressionContext) {
+	l.columnMap[ctx.GetText()] = struct{}{}
 }
 
 func (l *fingerprintVisitor) EnterCreate_table(ctx *Create_tableContext) {
@@ -139,6 +141,8 @@ func FingerprintAndTemplateExtra(sql string) Result {
 		numberParams: make(map[string]int),
 		sqlType:      Others,
 		serialType:   SerialOthers,
+		tableMap:     make(map[string]struct{}),
+		columnMap:    make(map[string]struct{}),
 	}
 
 	antlr.ParseTreeWalkerDefault.Walk(listener, tree)
@@ -151,6 +155,23 @@ func FingerprintAndTemplateExtra(sql string) Result {
 		}
 		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(vv) + `\b`)
 		listener.templates = re.ReplaceAllString(listener.templates, "?")
+	}
+
+	for k := range listener.tableMap {
+		listener.tables = append(listener.tables, k)
+	}
+
+	for k := range listener.columnMap {
+		find := false
+		for _, v := range listener.parameters {
+			if k == v {
+				find = true
+			}
+		}
+
+		if !find {
+			listener.columns = append(listener.columns, k)
+		}
 	}
 
 	result := Result{
